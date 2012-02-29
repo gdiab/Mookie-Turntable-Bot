@@ -297,8 +297,8 @@ function output(data) {
 //Checks if the user id is present in the admin list. Authentication
 //for admin-only privileges.
 function admincheck(userid) {
-	for (i in config.admins) {
-		if (userid == config.admins[i]) {
+	for (i in config.admins.admins) {
+		if (userid == config.admins.admins[i]) {
 			return true;
 		}
 	}
