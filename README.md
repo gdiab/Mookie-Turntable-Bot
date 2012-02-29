@@ -1,8 +1,8 @@
-#Sparkle Turntable Bot
+#Mookie Turntable Bot
 
 A customizable Turntable.fm bot.
 
-This is still early in development, and some features are developed for/catered to the Indie/Classic Alt room, and may not apply to all rooms.
+This is still early in development. Many of the features are taken from thr Sparkle bot for/catered to the Indie/Classic Alt room.
 
 ## Installation
 
@@ -16,22 +16,22 @@ To run the bot, you'll need the following installed:
 
 ## Run
 
-* Fill out the config.json file (instructions [here](Sparkle-Turntable-Bot/blob/master/CONFIG.md)) with your bot account's user ID, auth code, target room ID, admin ID info, and other options
+* Fill out the config.json file (instructions [here](Mookie-Turntable-Bot/gdiab/master/CONFIG.md)) with your bot account's user ID, auth code, target room ID, admin ID info, and other options
   - If you do not plan to use the database features or do not want to install mysql, set database.usedb to FALSE
   - If you want your bot to enforce room rules, fill out the enforcement section; otherwise, set enforcement.enforceroom to FALSE
 * If you plan on using a database, create new tables using the .sql files provided (the songlist, userlist, and chatlog tables will be created for you)
 
 Finally, run your bot using the following command in a console/terminal/command prompt:
 
-	node sparkle.js
+	node mookie.js
 
 Use this command to run your bot in the background:
 
-	nohup node sparkle.js &
+	nohup node mookie.js &
 
 A keepalive shell script is included to allow the bot to run permanently. (Note: if you use this, do watch the nohup.out file to ensure the bot is continuing to work properly)
 
-	nohup ./sparkle.sh &
+	nohup ./mookie.sh &
 	
 
 ## Features
@@ -73,10 +73,6 @@ This project includes several .sql files (currently, these files contain a list 
 
 ### Planned
 
-* A waitlist implementation
-* DJ timers for AFK monitoring
-* Graphical frontend to set config options
-* Fixing time-based wait-to-step-up rules so they actually work
 
 ## Commands
 
@@ -84,11 +80,11 @@ The bot will respond to these commands in chat in a Turntable.fm room.
 
 ### User commands
 
-* .sparklecommands - Displays a list of commands supported by this bot.
+* .mookiecommands - Displays a list of commands supported by this bot.
 
 * help, commands - Displays a list of commands available in the Indie/Classic Alt 1+Done room	
 
-* meow, pm me - The bot will send you a Private Message so you can send private requests to it
+* pm me - The bot will send you a Private Message so you can send private requests to it
 
 * bonus - Adds a bonus point to a song (if enabled). When a song has enough bonus points, the bot will awesome.
           Other phrases that add a bonus point: tromboner, meow, /bonus, good song, great song, nice pick,
@@ -96,7 +92,7 @@ The bot will respond to these commands in chat in a Turntable.fm room.
 
 * points - Displays what is needed for the bot to awesome the song (number of awesomes, points, etc).
 
-* /roll - Dice roll
+* /roll - Dice roll (if enabled)
 
 * CAN YOU FEEL IT!? - Bot responds with "YES I CAN FEEL IT!"
 
@@ -108,11 +104,11 @@ The bot will respond to these commands in chat in a Turntable.fm room.
 
 * ping - Responds to the issuing user that they are still in the room.
 
-* reptar - Responds with a variant of "rawr!"
+* boom - Responds with a variant of "boom!"
 
-* rules - Displays the room rules (defaults to Indie/Classic Alt 1 & Done room rules).
+* rules - Displays the room rules (defaults to inALLcaps.com rules).
 
-* hugs meow - Hugs the issuing user back in chat.
+* hugs mookie - Hugs the issuing user back in chat.
 
 * platforms - Lists the number of users on each platform (PC/Mac/Linux/iPhone/Chrome) in the room.
 
@@ -166,7 +162,7 @@ The bot will respond to these commands in chat in a Turntable.fm room.
 
 * dbsize - Returns the number of songs logged in the database.
 
-* catfact, .catfact, catfacts - Returns a cat fact!
+* musicfact, .musicfact, musicfacts - Returns a music fact!
 
 ### Commands with parameters
 
@@ -191,13 +187,13 @@ These commands can only be performed by admins of the bot.
 
 * pullcurrent - Pulls the current DJ off stage during their song.
 
-* meow, step up - The bot steps up to DJ.
+* step up - The bot steps up to DJ.
 
-* meow, step down - The bot steps down from the decks.
+* step down - The bot steps down from the decks.
 
-* meow, shut down - The bot shuts down, terminating the process.
+* shut down - The bot shuts down, terminating the process.
 
-* meow, restart - If running through the .sh script, the bot will restart. Otherwise, the bot will shut down.
+* restart - If running through the .sh script, the bot will restart. Otherwise, the bot will shut down.
 
 ## TCP Commands
 
