@@ -273,6 +273,19 @@ function getTime () {
     return timeValue + ' PST';
 }    
 
+
+function populateSongData(data) {
+    currentsong.artist = data.room.metadata.current_song.metadata.artist;
+	currentsong.song = data.room.metadata.current_song.metadata.song;
+	currentsong.djname = data.room.metadata.current_song.djname;
+	currentsong.djid = data.room.metadata.current_song.djid;
+	currentsong.up = data.room.metadata.upvotes;
+	currentsong.down = data.room.metadata.downvotes;
+	currentsong.listeners = data.room.metadata.listeners;
+	currentsong.started = data.room.metadata.current_song.starttime;
+	currentsong.snags = 0;
+}
+
 function output(data) {
     if (data.destination == 'speak') {
         bot.speak(data.text);
@@ -1558,7 +1571,7 @@ function handleCommand (name, userid, text, source) {
 		case 'snag this mookie':
 		case 'snag this':
             //bot.speak('debug: ' + currentsong.songid);
-			if (admincheck(data.userid)) {
+			if (admincheck(userid)) {
 				setTimeout(function() {
 					response = ('got it!');
                     output({text: response, destination: source, userid: userid});
@@ -1570,7 +1583,7 @@ function handleCommand (name, userid, text, source) {
 			break;
 				
 		case 'uptime':
-            if (admincheck(data.userid)) {
+            if (admincheck(userid)) {
                 var cur = new Date().getTime() - uptime.getTime();
                 var days = Math.floor(cur / 86400000);
                 cur = cur % 86400000;
@@ -1590,21 +1603,21 @@ function handleCommand (name, userid, text, source) {
 
         //Tells bot to awesome the current song
 		case '\.a':
-			if (admincheck(data.userid)) {
+			if (admincheck(userid)) {
 				bot.vote('up');
 			}
 			break;
 
 		//Tells bot to lame the current song
 		case '\.l':
-			if (admincheck(data.userid)) {
+			if (admincheck(userid)) {
 				bot.vote('down');
 			}
 			break;
 
 		//Pulls a DJ after their song.
 		case 'pulldj':
-			if (admincheck(data.userid)) {
+			if (admincheck(userid)) {
 				if (!userstepped) {
 					bot.remDj(usertostep);
 				}
@@ -1613,7 +1626,7 @@ function handleCommand (name, userid, text, source) {
 
 		//Pulls the current dj.
 		case 'pullcurrent':
-			if (admincheck(data.userid)) {
+			if (admincheck(userid)) {
 				if(currentsong.djid != null) {
 					bot.remDj(currentsong.djid);
 				}
@@ -1622,21 +1635,21 @@ function handleCommand (name, userid, text, source) {
 
 		//Step up to DJ
 		case 'step up':
-			if (admincheck(data.userid)) {
+			if (admincheck(userid)) {
 				bot.addDj();
 			}
 			break;
 
 		//Step down if DJing
 		case 'step down':
-			if (admincheck(data.userid)) {
+			if (admincheck(userid)) {
 				bot.remDj(config.USERID);
 			}
 			break;
 
 		//Bot freakout
 		case 'omg':
-			if (admincheck(data.userid)) {
+			if (admincheck(userid)) {
 				output({text: boomCall(), destination: source, userid: userid});
 				setTimeout(function() {
 					output({text: boomCall(), destination: source, userid: userid});
