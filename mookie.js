@@ -1196,28 +1196,29 @@ function handleCommand (name, userid, text, source) {
 		//Returns the room's play count, total awesomes/lames, and average awesomes/lames
 		//in the room
 		case 'stats':
-			if (config.database.usedb) {
-				client.query('SELECT @uniquesongs := count(*) FROM (select * from '
-					+ config.database.dbname + '.' + config.database.tablenames.song
-                + ' group by concat(song, \' by \', artist)) as songtbl');
-				client.query('SELECT @numdjs := count(*) FROM (select * from '
-					+ config.database.dbname + '.' + config.database.tablenames.song
-                + ' group by djid) as djtable');
-				client.query('SELECT @uniquesongs as uniquesongs, @numdjs as numdjs, '
-					+ 'count(*) as total, sum(up) as up, avg(up) as avgup, '
-					+ 'sum(down) as down, avg(down) as avgdown FROM ' + config.database.tablenames.song,
-					function select(error, results, fields) {
-						bot.speak('In this room, '
-							+ results[0]['total'] + ' songs ('
-							+ results[0]['uniquesongs'] + ' unique) have been played by '
-							+ results[0]['numdjs'] + ' DJs with a total of '
-							+ results[0]['up'] + ' awesomes and ' + results[0]['down']
-							+ ' lames (avg +' + new Number(results[0]['avgup']).toFixed(1) 
-							+ '/-' + new Number(results[0]['avgdown']).toFixed(1)
-							+ ').');
-				});
-			}
-			break;
+            if (config.database.usedb) {
+                client.query('SELECT @uniquesongs := count(*) FROM (select * from '
+                    + config.database.dbname + '.' + config.database.tablenames.song
+                    + ' group by concat(song, \' by \', artist)) as songtbl');
+                client.query('SELECT @numdjs := count(*) FROM (select * from '
+                    + config.database.dbname + '.' + config.database.tablenames.song + ' group by djid) as djtable');
+                client.query('SELECT @uniquesongs as uniquesongs, @numdjs as numdjs, '
+                    + 'count(*) as total, sum(up) as up, avg(up) as avgup, '
+                    + 'sum(down) as down, avg(down) as avgdown FROM ' + config.database.dbname
+                    + '.' + config.database.tablenames.song,
+                    function select(error, results, fields) {
+                        var response = ('In this room, '
+                            + results[0]['total'] + ' songs ('
+                            + results[0]['uniquesongs'] + ' unique) have been played by '
+                            + results[0]['numdjs'] + ' DJs with a total of '
+                            + results[0]['up'] + ' awesomes and ' + results[0]['down']
+                            + ' lames (avg +' + new Number(results[0]['avgup']).toFixed(1) 
+                            + '/-' + new Number(results[0]['avgdown']).toFixed(1)
+                            + ').');
+                        output({text: response, destination: source, userid: userid});
+                });
+            }
+            break;
 
 		//Returns the three song plays with the most awesomes in the songlist table
 		case 'bestplays':
@@ -1392,6 +1393,7 @@ function handleCommand (name, userid, text, source) {
                             + ' lames (avg +' + new Number(results[0]['avgup']).toFixed(1) 
                             + '/-' + new Number(results[0]['avgdown']).toFixed(1)
                             + ') (Rank: ' + results[0]['rank'] + ')');
+                            console.log(source);
                         output({text: response, destination: source, userid: userid});
                 });
             }
@@ -1642,6 +1644,7 @@ function handleCommand (name, userid, text, source) {
 		
 	//Sends a PM to the user
     if (text.toLowerCase().match(/^pm me/)) {
+        console.log('request to pm');
         if (source == 'speak') {
             bot.pm('Hey there! Type "commands" for a list of commands.', userid);
         } else if (source == 'pm') {
