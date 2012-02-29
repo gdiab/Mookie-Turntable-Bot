@@ -956,9 +956,10 @@ function handleCommand (name, userid, text, source) {
         case 'stagedive':
         case '/stagedive':
         case '/dive':
-        if (userid == usertostep) {
-            bot.remDj(usertostep);
-        }
+        //console.log(usertostep);
+        //if (userid == usertostep) {
+            bot.remDj(userid);
+        //}
         break;
 		
 		case 'nocab':
@@ -1791,17 +1792,49 @@ bot.on('endsong', function (data) {
 
     //If a DJ that needed to step down hasn't by the end of the
     //next DJ's song, remove them immediately
-    if (config.oneDownEnforce && !userstepped) {
+    if (config.enforcement.enforceroom && !userstepped) {
         bot.remDj(usertostep);
     }
     
 	//Used for room enforcement
-	userstepped = false;
-	usertostep = currentsong.djid;
+    //Reduces the number of songs remaining for the current DJ by one
+    if (config.enforcement.enforceroom) {
+        for (i in djs) {
+            if (djs[i].id == currentsong.djid) {
+                djs[i].remaining--;
+                if (djs[i].remaining <= 0) {
+                    userstepped = false;
+                    usertostep = currentsong.djid;
+                }
+            }
+        }
+        
+        //If enforcement type is songs, decrease the song-wait count for all past djs
+        if (config.enforcement.stepuprules.waittype == 'SONGS' && config.enforcement.stepuprules.waittostepup) {
+            for (i in pastdjs) {
+                pastdjs[i].wait--;
+            }
+            
+            for (i in pastdjs) {
+                if (pastdjs[i].wait < 1) {
+                    pastdjs.splice(i, 1);
+                }
+            }
+        //If enforcement type is minutes, remove dj from pastdjs list if they can step up
+        } else if (config.enforcement.stepuprules.waittype == 'MINUTES' && config.enforcement.stepuprules.waittostepup) {
+            for (i in pastdjs) {
+                //Checks if the user has waited long enough
+                //config.enforcement.stepuprules.length is converted from minutes to milliseconds
+                if ((new Date().getTime() - pastdjs[i].wait.getTime()) > (config.enforcement.stepuprules.length * 60000)) {
+                    pastdjs.splice(i, 1);
+                }
+            }
+        }
+    }
     
 
 	//Report song stats in chat
-	if (config.reportSongStats) {
+	if (config.responses.reportsongstats) {
 		bot.speak(currentsong.song + ' stats: awesomes: '
 			+ currentsong.up + ' lames: ' + currentsong.down
 			+ ' snags: ' + currentsong.snags);
@@ -1815,40 +1848,25 @@ bot.on('endsong', function (data) {
 //logs new song in console, auto-awesomes song
 bot.on('newsong', function (data) {
 	//Populate new song data in currentsong
-	currentsong.artist = data.room.metadata.current_song.metadata.artist;
-	currentsong.song = data.room.metadata.current_song.metadata.song;
-	currentsong.djname = data.room.metadata.current_song.djname;
-	currentsong.songid = data.room.metadata.current_song._id;
-    currentsong.djid = data.room.metadata.current_song.djid;
-	currentsong.up = data.room.metadata.upvotes;
-	currentsong.down = data.room.metadata.downvotes;
-	currentsong.listeners = data.room.metadata.listeners;
-	currentsong.started = data.room.metadata.current_song.starttime;
-	currentsong.snags = 0;
+	populateSongData(data);
 
 	//Check something
 	if ((currentsong.artist.indexOf('Skrillex') != -1) || (currentsong.song.indexOf('Skrillex') != -1)) {
 		bot.remDj(currentsong.djid);
-		bot.speak('Not here...');
-	}
-	
-	//Check something
-	if ((currentsong.artist.indexOf('Die Antwoord') != -1) || (currentsong.song.indexOf('Die Antwoord') != -1)) {
-		bot.remDj(currentsong.djid);
-		bot.speak('NO!');
+		bot.speak('NO.');
 	}
 
 	//Enforce stepdown rules
 	if (usertostep != null) {
-		if (usertostep == config.USERID) {
-			//bot.remDj(config.USERID);
-		} else if (config.oneDownEnforce) {
+		if (usertostep == config.botinfo.userid) {
+			bot.remDj(config.botinfo.userid);
+		} else if (config.enforcement.enforceroom) {
 			enforceRoom();
 		}
 	}
 
 	//Log in console
-	if (config.logConsoleEvents) {
+	if (config.consolelog) {
 		console.log('Now Playing: '+currentsong.artist+' - '+currentsong.song);
 	}
 	
@@ -1877,8 +1895,6 @@ bot.on('newsong', function (data) {
             }
         }
     }
-
-	
 });
 
 //Runs when a dj steps down
