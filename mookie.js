@@ -1640,7 +1640,15 @@ function handleCommand (name, userid, text, source) {
 			}
             break;
 		
-	
+	//Sends a PM to the user
+    if (text.toLowerCase().match(/^pm me/)) {
+        if (source == 'speak') {
+            bot.pm('Hey there! Type "commands" for a list of commands.', userid);
+        } else if (source == 'pm') {
+            bot.pm('But... you PM\'d me that. Do you think I\'m stupid? >:T', userid);
+        }
+    }
+
     
     //Checks if a user can step up as per room rules or if they must wait
     if (text.toLowerCase().match(/^can i step up/) && config.oneDownEnforce) {
