@@ -19,7 +19,7 @@ var sail = [
     ['SAIL', 34500]
 ];
 
-var atomic garden = [
+var atomicgarden = [
     ['And I\'m glad I\'m not Gorbachev', 69000],
     ['\'cause I\'d wiggle all night', 69500],
     ['Like jelly in a pot', 72000],
@@ -28,7 +28,7 @@ var atomic garden = [
     ['Come out to plaaaaaaaaay!', 78900]
 ];
     
-var new dark ages = [
+var newdarkages = [
     ['Can you hear the call!', 184000],
     ['We\'ll set this riiiiight!', 186000],
     ['I hope you\'re livin\' right!', 188000],
@@ -39,7 +39,9 @@ var new dark ages = [
 var songlist = [
     ['AWOLNATION', 'Sail', sail],
     ['Reptar', 'Blastoff', blastoff],  
-    ['Reptar', 'Houseboat Babies', houseboatbabies]
+    ['Reptar', 'Houseboat Babies', houseboatbabies],
+    ['Bad Religion', 'New Dark Ages', newdarkages],
+    ['Bad Religion', 'Atmoic Garden', atomicgarden],
 ];
 
 exports.getLyrics = function (artist, song) {

@@ -44,7 +44,9 @@ function initializeModules() {
 
     //Creates the config object
     try {
-        config = JSON.parse(fs.readFileSync('config.json', 'ascii'));
+        console.log(__dirname);
+        console.log(require('./config.json'));
+        config = JSON.parse(fs.readFileSync(__dirname + '/config.json', 'ascii'));
     } catch(e) {
         console.log(e);
         console.log('Ensure that config.json is present in this directory.');
@@ -54,7 +56,7 @@ function initializeModules() {
     //Loads bot singalongs
     if (config.responses.sing) {
         try {
-            singalong = require('./singalong.js');
+            singalong = require(__dirname + '/singalong.js');
         } catch (e) {
             console.log(e);
             console.log('Ensure that singalong.js is present in this directory,'
@@ -211,8 +213,30 @@ function Tweet() {
     getTwitters();
 }
 
+function MusicFact(source, userid) {
+    if (config.database.usedb) {
+        client.query('SELECT * FROM MUSICFACTS ORDER BY RAND() LIMIT 1',
+            function selectCb(error, results, fields) {
+                if (results[0] != null) {
+                    var response = (results[0]['fact']);
+                    if (source == 'speak') {
+                            bot.speak(response);
+                        } else if (source == 'pm') {
+                            bot.pm(response, userid);
+                        }
+                }
+        });
+    }
+}
+
 function KeepAlive() {
-    getTwitters();
+    var rand = Math.random();
+    var response = '';
+	if (rand < 0.4) {
+        getTwitters();
+    } else {
+        MusicFact('speak');
+    }
     setTimeout(function() {
         KeepAlive();
     }, 4500000);
@@ -324,7 +348,8 @@ function awesomeCall() {
 //This runs on the endsong event.
 function addToDb(data) {
 	client.query(
-		'INSERT INTO '+ config.SONG_TABLE +' '
+		'INSERT INTO '+ config.database.dbname + '.' + config.database.tablenames.song
+                +' '
 		+ 'SET artist = ?,song = ?, djname = ?, djid = ?, up = ?, down = ?,'
 		+ 'listeners = ?, started = NOW(), snags = ?, bonus = ?',
 		[currentsong.artist, 
@@ -831,20 +856,23 @@ function handleCommand (name, userid, text, source) {
 				+ 'platforms, boom, mostplayed, mostawesomed, mostlamed, mymostplayed, '
 				+ 'mymostawesomed, mymostlamed, totalawesomes, mostsnagged, '
 				+ 'pastnames [username], .similar, .similarartists, '
-				+ '.weather [zip], .find [zip] [thing]');
+				+ '.weather [zip], .find [zip] [thing]';
+            output({text: response, destination: source, userid: userid});
 			break;
 
 		case 'help':
 		case 'commands':
-			bot.speak('commands: ping, boom, platforms, snag this, '
+			var response = 'commands: ping, boom, platforms, snag this, '
 				+ '.rules, .users, .owner, mystats, mostplayed, '
 				+ 'mostawesomed, mymostplayed, mymostawesomed, '
-				+ 'pastnames [username], .similar, .similarartists');
+				+ 'pastnames [username], .similar, .similarartists';
             output({text: response, destination: source, userid: userid});
 			break;
 
-		//Bonus points
-		//If enough bonus points are cast for a song, the bot will awesome.
+		//--------------------------------------
+        // Bonus points
+        //--------------------------------------
+        
 		case 'good song':
 		case 'nice follow':
 		case 'bonus':
@@ -919,18 +947,6 @@ function handleCommand (name, userid, text, source) {
             bot.remDj(usertostep);
         }
         break;
-
-		//Displays a list of users in the room
-		case '.users':
-			var numUsers = 0;
-			var output = '';
-			for (var i in usersList) {
-				output += (usersList[i].name) + ', ';
-				numUsers++;
-			}
-			bot.speak(numUsers + ' users in room: '
-				+ output.substring(0,output.length - 2));
-			break;
 		
 		case 'nocab':
 		case 'bacon':
@@ -1029,17 +1045,28 @@ function handleCommand (name, userid, text, source) {
             var response = (version);
             output({text: response, destination: source, userid: userid});
             break;
-            
-		//Rules rehash since xxRAWRxx only responds to .rules
-		case 'rules':
-			var response = ('You can view the rules here: ' + config.responses.rules.link);
+        
+        case 'blog':
+            var response = ('You can view the blog here: ' + config.responses.rules.link);
             output({text: response, destination: source, userid: userid});
+            break;
+                
+        case 'rules':
 			setTimeout(function() {
 				var response = (config.responses.rules.description);
                 output({text: response, destination: source, userid: userid});
 			}, 600);
 			break;
-
+        
+        case 'musicfact':
+        case '.musicfact':
+        case 'musicfacts':
+        case '.musicfacts':
+        case 'music fact':
+        case 'music facts':
+            MusicFact(source, userid);
+            break;
+        
 		//hugs support.
 		//Change mookie, meow etc to bot name
 		case 'hugs mookie':
@@ -1078,9 +1105,10 @@ function handleCommand (name, userid, text, source) {
             
         //Returns information on the current song (for users without TT+)
         case 'songinfo':
-            bot.speak(currentsong.song + ': Awesomes: ' + currentsong.up + '  Lames: '
-                + currentsong.down + '  Snags: ' + currentsong.snags);
-            break;
+            var response = (currentsong.song + ' (mid-song stats): Awesomes: ' + currentsong.up + '  Lames: '
+            + currentsong.down + '  Snags: ' + currentsong.snags);
+        output({text: response, destination: source, userid: userid});
+        break;
             
         //Lists the DJs that must wait before stepping up (as per room rules)
         case 'waitdjs':
@@ -1168,14 +1196,16 @@ function handleCommand (name, userid, text, source) {
 		//Returns the room's play count, total awesomes/lames, and average awesomes/lames
 		//in the room
 		case 'stats':
-			if (config.useDatabase) {
+			if (config.database.usedb) {
 				client.query('SELECT @uniquesongs := count(*) FROM (select * from '
-					+ config.SONG_TABLE + ' group by concat(song, \' by \', artist)) as songtbl');
+					+ config.database.dbname + '.' + config.database.tablenames.song
+                + ' group by concat(song, \' by \', artist)) as songtbl');
 				client.query('SELECT @numdjs := count(*) FROM (select * from '
-					+ config.SONG_TABLE + ' group by djid) as djtable');
+					+ config.database.dbname + '.' + config.database.tablenames.song
+                + ' group by djid) as djtable');
 				client.query('SELECT @uniquesongs as uniquesongs, @numdjs as numdjs, '
 					+ 'count(*) as total, sum(up) as up, avg(up) as avgup, '
-					+ 'sum(down) as down, avg(down) as avgdown FROM ' + config.SONG_TABLE,
+					+ 'sum(down) as down, avg(down) as avgdown FROM ' + config.database.tablenames.song,
 					function select(error, results, fields) {
 						bot.speak('In this room, '
 							+ results[0]['total'] + ' songs ('
@@ -1191,9 +1221,10 @@ function handleCommand (name, userid, text, source) {
 
 		//Returns the three song plays with the most awesomes in the songlist table
 		case 'bestplays':
-			if (config.useDatabase) {
+			if (config.database.usedb) {
 				client.query('SELECT CONCAT(song,\' by \',artist) AS TRACK, UP FROM '
-					+ config.SONG_TABLE + ' ORDER BY UP DESC LIMIT 3',
+					+ config.database.dbname + '.' + config.database.tablenames.song
+                + ' ORDER BY UP DESC LIMIT 3',
 					function select(error, results, fields) {
 						var response = 'The song plays I\'ve heard with the most awesomes: ';
 						for (i in results) {
@@ -1207,8 +1238,8 @@ function handleCommand (name, userid, text, source) {
 			
 		//Returns the three DJs with the most points in the last 24 hours
 		case 'past24hours':
-			if (config.useDatabase) {
-				client.query('SELECT djname, sum(up) AS upvotes FROM ' + config.SONG_TABLE
+			if (config.database.usedb) {
+				client.query('SELECT djname, sum(up) AS upvotes FROM ' + config.database.tablenames.song
 					+ ' WHERE started > DATE_SUB(NOW(), INTERVAL 1 DAY) GROUP BY djid '
 					+ 'ORDER BY sum(up) DESC LIMIT 3',
 					function select(error, results, fields) {
@@ -1232,9 +1263,10 @@ function handleCommand (name, userid, text, source) {
 
 		//Returns the three DJs with the most points logged in the songlist table
 		case 'bestdjs':
-			if (config.useDatabase) {
+			if (config.database.usedb) {
 				client.query('SELECT djname as DJ, sum(up) as POINTS from '
-					+ '(SELECT * from ' + config.SONG_TABLE + ' order by id desc) as SORTED'
+					+ '(SELECT * from ' + config.database.dbname + '.' + config.database.tablenames.song
+                + ' order by id desc) as SORTED'
 					+ ' group by djid order by sum(up) desc limit 3',
 					function select(error, results, fields) {
 						var response = 'The DJs with the most points accrued in this room: ';
@@ -1249,9 +1281,10 @@ function handleCommand (name, userid, text, source) {
 
 		//Returns the three DJs with the most points logged in the songlist table
 		case 'worstdjs':
-			if (config.useDatabase) {
+			if (config.database.usedb) {
 				client.query('SELECT djname as DJ, sum(down) as POINTS from '
-					+ '(SELECT * from ' + config.SONG_TABLE + ' order by id desc) as SORTED'
+					+ '(SELECT * from ' + config.database.dbname + '.' + config.database.tablenames.song
+                + ' order by id desc) as SORTED'
 					+ ' group by djid order by sum(down) desc limit 3',
 					function select(error, results, fields) {
 						var response = 'The DJs with the most lames accrued in this room: ';
@@ -1266,9 +1299,10 @@ function handleCommand (name, userid, text, source) {
 
 		//Returns the three most-played songs in the songlist table
 		case 'mostplayed':
-			if (config.useDatabase) {
+			if (config.database.usedb) {
 				client.query('SELECT CONCAT(song,\' by \',artist) AS TRACK, COUNT(*) AS COUNT FROM '
-					+ config.SONG_TABLE + ' GROUP BY CONCAT(song,\' by \',artist) ORDER BY COUNT(*) '
+					+ config.database.dbname + '.' + config.database.tablenames.song
+                + ' GROUP BY CONCAT(song,\' by \',artist) ORDER BY COUNT(*) '
 					+ 'DESC LIMIT 3',
 					function select(error, results, fields) {
 						var response = 'The songs I\'ve heard the most: ';
@@ -1283,9 +1317,10 @@ function handleCommand (name, userid, text, source) {
 			
 			//Returns the three most-played songs in the songlist table
 		case 'mostsnagged':
-			if (config.useDatabase) {
+			if (config.database.usedb) {
 				client.query('SELECT CONCAT(song,\' by \',artist) AS TRACK, sum(snags) AS SNAGS FROM '
-					+ config.SONG_TABLE + ' GROUP BY CONCAT(song, \' by \', artist) ORDER BY SNAGS '
+					+ config.database.dbname + '.' + config.database.tablenames.song
+                + ' GROUP BY CONCAT(song, \' by \', artist) ORDER BY SNAGS '
 					+ 'DESC LIMIT 3', function select(error, results, fields) {
 						var response = 'The songs I\'ve seen snagged the most: ';
 						for (i in results) {
@@ -1299,9 +1334,10 @@ function handleCommand (name, userid, text, source) {
 
 		//Returns the three most-awesomed songs in the songlist table
 		case 'mostawesomed':
-			if (config.useDatabase) {
+			if (config.database.usedb) {
 				client.query('SELECT CONCAT(song,\' by \',artist) AS TRACK, SUM(up) AS SUM FROM '
-					+ config.SONG_TABLE + ' GROUP BY CONCAT(song,\' by \',artist) ORDER BY SUM '
+					+ config.database.dbname + '.' + config.database.tablenames.song
+                + ' GROUP BY CONCAT(song,\' by \',artist) ORDER BY SUM '
 					+ 'DESC LIMIT 3',
 					function select(error, results, fields) {
 						var response = 'The most awesomed songs I\'ve heard: ';
@@ -1316,9 +1352,10 @@ function handleCommand (name, userid, text, source) {
 
 		//Returns the three most-lamed songs in the songlist table
 		case 'mostlamed':
-			if (config.useDatabase) {
+			if (config.database.usedb) {
 				client.query('SELECT CONCAT(song,\' by \',artist) AS TRACK, SUM(down) AS SUM FROM '
-					+ config.SONG_TABLE + ' GROUP BY CONCAT(song,\' by \',artist) ORDER BY SUM '
+					+ config.database.dbname + '.' + config.database.tablenames.song
+                + ' GROUP BY CONCAT(song,\' by \',artist) ORDER BY SUM '
 					+ 'DESC LIMIT 3',
 					function select(error, results, fields) {
 						var response = 'The most lamed songs I\'ve heard: ';
@@ -1334,34 +1371,38 @@ function handleCommand (name, userid, text, source) {
 		//Returns the user's play count, total awesomes/lames, and average awesomes/lames
 		//in the room
 		case 'mystats':
-			if (config.useDatabase) {
-				//These two statements gets the user's rank (by awesomes) and sets it to @rank
-				client.query('SET @rownum := 0');
-				client.query('SELECT @rank := rank FROM (SELECT @rownum := @rownum + 1 AS '
-					+ 'rank, djid, POINTS FROM (SELECT djid, sum(up) as POINTS from SONGLIST '
-					+ 'group by djid order by sum(up) desc) as test) as rank where '
-					+ 'djid like \'' + data.userid + '\'');
-				//This statement grabs the rank from the previous query, and gets the total songs
-				//played, total awesomes, lames, and averages
-				client.query('SELECT @rank as rank, count(*) as total, sum(up) as up, avg(up) as avgup, '
-					+ 'sum(down) as down, avg(down) as avgdown '
-					+ 'FROM '+ config.SONG_TABLE + ' WHERE `djid` LIKE \'' + data.userid + '\'',
-					function select(error, results, fields) {
-						bot.speak (data.name + ', you have played ' + results[0]['total'] 
-							+ ' songs in this room with a total of '
-							+ results[0]['up'] + ' awesomes and ' + results[0]['down']
-							+ ' lames (avg +' + new Number(results[0]['avgup']).toFixed(1) 
-							+ '/-' + new Number(results[0]['avgdown']).toFixed(1)
-							+ ') (Rank: ' + results[0]['rank'] + ')');
-				});
-			}
-			break;
+            if (config.database.usedb) {
+                //These two statements gets the user's rank (by awesomes) and sets it to @rank
+                client.query('SET @rownum := 0');
+                client.query('SELECT @rank := rank FROM (SELECT @rownum := @rownum + 1 AS '
+                    + 'rank, djid, POINTS FROM (SELECT djid, sum(up) as POINTS from '
+                    + config.database.dbname + '.' + config.database.tablenames.song
+                    + ' group by djid order by sum(up) desc) as test) as rank where '
+                    + 'djid like \'' + userid + '\'');
+                //This statement grabs the rank from the previous query, and gets the total songs
+                //played, total awesomes, lames, and averages
+                client.query('SELECT @rank as rank, count(*) as total, sum(up) as up, avg(up) as avgup, '
+                    + 'sum(down) as down, avg(down) as avgdown '
+                    + 'FROM '+ config.database.dbname + '.' + config.database.tablenames.song + ' WHERE `djid` LIKE \''
+                    + userid + '\'',
+                    function select(error, results, fields) {
+                        var response = (name + ', you have played ' + results[0]['total'] 
+                            + ' songs in this room with a total of '
+                            + results[0]['up'] + ' awesomes and ' + results[0]['down']
+                            + ' lames (avg +' + new Number(results[0]['avgup']).toFixed(1) 
+                            + '/-' + new Number(results[0]['avgdown']).toFixed(1)
+                            + ') (Rank: ' + results[0]['rank'] + ')');
+                        output({text: response, destination: source, userid: userid});
+                });
+            }
+            break;
 			
 		//Returns the user's three most played songs
 		case 'mymostplayed':
-			if (config.useDatabase) {
+			if (config.database.usedb) {
 				client.query('SELECT CONCAT(song,\' by \',artist) AS TRACK, COUNT(*) AS COUNT FROM '
-					+ config.SONG_TABLE + ' WHERE (djid = \''+ data.userid +'\')'
+					+ config.database.dbname + '.' + config.database.tablenames.song
+                + ' WHERE (djid = \''+ data.userid +'\')'
 					+ ' GROUP BY CONCAT(song,\' by \',artist) ORDER BY COUNT(*) DESC LIMIT 3',
 					function select(error, results, fields) {
 						var response = 'The songs I\'ve heard the most from you: ';
@@ -1376,9 +1417,10 @@ function handleCommand (name, userid, text, source) {
 
 		//Returns the user's three most-awesomed songs (aggregate)
 		case 'mymostawesomed':
-			if (config.useDatabase) {
+			if (config.database.usedb) {
 				client.query('SELECT CONCAT(song,\' by \',artist) AS TRACK, SUM(up) AS SUM FROM '
-					+ config.SONG_TABLE + ' WHERE (djid = \''+ data.userid +'\')'
+					+ config.database.dbname + '.' + config.database.tablenames.song
+                + ' WHERE (djid = \''+ data.userid +'\')'
 					+ ' GROUP BY CONCAT(song,\' by \',artist) ORDER BY SUM DESC LIMIT 3',
 					function select(error, results, fields) {
 						var response = 'The most appreciated songs I\'ve heard from you: ';
@@ -1393,9 +1435,10 @@ function handleCommand (name, userid, text, source) {
 
 		//Returns the user's three most-lamed songs (aggregate)
 		case 'mymostlamed':
-			if (config.useDatabase) {
+			if (config.database.usedb) {
 				client.query('SELECT CONCAT(song,\' by \',artist) AS TRACK, SUM(down) AS SUM FROM '
-					+ config.SONG_TABLE + ' WHERE (djid = \''+ data.userid +'\')'
+					+ config.database.dbname + '.' + config.database.tablenames.song
+                + ' WHERE (djid = \''+ data.userid +'\')'
 					+ ' GROUP BY CONCAT(song,\' by \',artist) ORDER BY SUM DESC LIMIT 3',
 					function select(error, results, fields) {
 						var response = 'The most hated songs I\'ve heard from you: ';
@@ -1411,9 +1454,9 @@ function handleCommand (name, userid, text, source) {
 		//For debugging/monitoring of db
 		//Returns the number of songs logged.
 		case 'dbsize':
-			if (config.useDatabase) {
+			if (config.database.usedb) {
 				//var response = 'Songs logged';
-				client.query('SELECT COUNT(STARTED) AS COUNT FROM ' + config.SONG_TABLE,
+				client.query('SELECT COUNT(STARTED) AS COUNT FROM ' + config.database.tablenames.song,
 					function selectCb(error, results, fields) {
 						bot.speak('Songs logged: ' + results[0]['COUNT'] + ' songs.');
 				});
@@ -1430,11 +1473,58 @@ function handleCommand (name, userid, text, source) {
 			break;
 			
         case 'tweets':
+        case 'tweet':
 			bot.speak('let\'s see...');
 			setTimeout(function() {
-				getTwitters();
+				Tweet();
 			}, 1000);
 			break;
+            
+         //Tells a DJ how many songs they have remaining
+        case 'songsremaining':
+        case '.remaining':
+            if (config.enforcement.enforceroom) {
+                var found = false;
+                for (i in djs) {
+                    if (djs[i].id == userid) {
+                        var response = '';
+                        if (djs[i].remaining == 1) {
+                            response = (name + ', you have one song remaining.');
+                        } else {
+                            response = (name + ', you have ' + djs[i].remaining + ' songs remaining.');
+                        }
+                        output({text: response, destination: source, userid: userid});
+                        found = true;
+                    }
+                }
+            }
+            if (!found) {
+                var response = (name + ', you\'re not DJing...');
+                output({text: response, destination: source, userid: userid});
+            }
+            break;
+            
+        //Displays a list of how many songs each DJ has left
+        case 'djinfo':
+            if (config.enforcement.enforceroom) {
+                var response = '';
+                for (i in djs) {
+                    response += usersList[djs[i].id].name + ' (' + djs[i].remaining + ' songs left), ';
+                }
+                output({text: response.substring(0, response.length - 2), destination: source, userid: userid});
+            }
+            break;
+            
+        //Tells a person who the next DJ to step down is
+        case 'any spots opening soon?': 
+        case 'anyone stepping down soon?':
+            if (config.enforcement.enforceroom) {
+                var response = ('The next DJ to step down is ' + usersList[djs[0].id].name + ', who has '
+                    + djs[0].remaining + ' songs remaining.');
+                output({text: response, destination: source, userid: userid});
+            }
+            break;
+
             
 		//--------------------------------------
 		//ADMIN-ONLY COMMANDS
@@ -1506,13 +1596,6 @@ function handleCommand (name, userid, text, source) {
 			}
 			break;
 
-		case 'go to inallcaps room':
-			if (data.userid == config.MAINADMIN) {
-				bot.roomDeregister();
-				bot.roomRegister(config.ROOMID);
-			}
-			break;
-
 		//Step up to DJ
 		case 'step up':
 			if (admincheck(data.userid)) {
@@ -1549,13 +1632,15 @@ function handleCommand (name, userid, text, source) {
 		//Shuts down bot (only the main admin can run this)
 		//Disconnects from room, exits process.
 		case 'shut down':
-			if (data.userid == config.MAINADMIN) {
+            //console.log(config.admins.mainadmin);
+			if (userid == config.admins.mainadmin) {
 				bot.speak('Shutting down...');
 				bot.roomDeregister();
 				process.exit(0);
 			}
+            break;
 		
-	}
+	
     
     //Checks if a user can step up as per room rules or if they must wait
     if (text.toLowerCase().match(/^can i step up/) && config.oneDownEnforce) {
@@ -1621,15 +1706,17 @@ function handleCommand (name, userid, text, source) {
 					}
 				}
 		});
+        }
 	}
 
 	//Returns a list of names a user has gone by
 	//Usage: 'pastnames [username]'
 	if (text.match(/^pastnames/)) {
-		if (config.useDatabase) {
-			client.query('SELECT djname FROM ' + config.SONG_TABLE
+		if (config.database.usedb) {
+			client.query('SELECT djname FROM ' + config.database.tablenames.song
 				+ ' WHERE (djid LIKE (SELECT djid FROM '
-				+ config.SONG_TABLE + ' WHERE (djname like ?)'
+				+ config.database.dbname + '.' + config.database.tablenames.song
+                + ' WHERE (djname like ?)'
 				+ ' ORDER BY id DESC LIMIT 1)) GROUP BY djname',
 				[text.substring(10)],
 				function select(error, results, fields) {
@@ -1641,7 +1728,7 @@ function handleCommand (name, userid, text, source) {
 			});
 		}
 	}
-});
+}
 
 //Runs when no song is playing.
 bot.on('nosong', function (data) {
@@ -1652,7 +1739,7 @@ bot.on('nosong', function (data) {
 //Logs song in database, reports song stats in chat
 bot.on('endsong', function (data) {
 	//Log song in DB
-	if (config.useDatabase) {
+	if (config.database.usedb) {
 		addToDb();
 	}
 
@@ -1923,6 +2010,7 @@ bot.on('booted_user', function(data) {
 });
 
 bot.on('pmmed', function(data) {
+    console.log('pm message');
     try {
         handleCommand(usersList[data.senderid].name, data.senderid, data.text.toLowerCase(), 'pm');
     } catch (e) {
