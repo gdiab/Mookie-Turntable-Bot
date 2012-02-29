@@ -1222,63 +1222,69 @@ function handleCommand (name, userid, text, source) {
 
 		//Returns the three song plays with the most awesomes in the songlist table
 		case 'bestplays':
-			if (config.database.usedb) {
-				client.query('SELECT CONCAT(song,\' by \',artist) AS TRACK, UP FROM '
-					+ config.database.dbname + '.' + config.database.tablenames.song
-                + ' ORDER BY UP DESC LIMIT 3',
-					function select(error, results, fields) {
-						var response = 'The song plays I\'ve heard with the most awesomes: ';
-						for (i in results) {
-							response += results[i]['TRACK'] + ': '
-								+ results[i]['UP'] + ' awesomes.  ';
-						}
-						bot.speak(response);
-				});
-			}
-			break;
+            if (config.database.usedb) {
+                client.query('SELECT CONCAT(song,\' by \',artist) AS TRACK, UP FROM '
+                    + config.database.dbname + '.' + config.database.tablenames.song + ' ORDER BY UP DESC LIMIT 3',
+                    function select(error, results, fields) {
+                        var response = 'The song plays I\'ve heard with the most awesomes: ';
+                        for (i in results) {
+                            response += results[i]['TRACK'] + ': '
+                                + results[i]['UP'] + ' awesomes.  ';
+                        }
+                        output({text: response, destination: source, userid: userid});
+                });
+            }
+            break;
 			
 		//Returns the three DJs with the most points in the last 24 hours
 		case 'past24hours':
-			if (config.database.usedb) {
-				client.query('SELECT djname, sum(up) AS upvotes FROM ' + config.database.tablenames.song
-					+ ' WHERE started > DATE_SUB(NOW(), INTERVAL 1 DAY) GROUP BY djid '
-					+ 'ORDER BY sum(up) DESC LIMIT 3',
-					function select(error, results, fields) {
-						var response = 'DJs with the most points in the last 24 hours: ';
-						for (i in results) {
-							response += results[i]['djname'] + ': '
-								+ results[i]['upvotes'] + ' awesomes.  ';
-						}
-						bot.speak(response);
-				});
-			}
-			break;
+            if (config.database.usedb) {
+                client.query('SELECT username, upvotes FROM (SELECT djid, sum(up) as upvotes '
+                    + 'FROM ' + config.database.dbname + '.' + config.database.tablenames.song
+                    + ' WHERE started > DATE_SUB(NOW(), INTERVAL '
+                    + '1 DAY) GROUP BY djid) a INNER JOIN (SELECT * FROM (SELECT * FROM '
+                     + config.database.dbname + '.' + config.database.tablenames.user
+                    + ' ORDER BY lastseen DESC) as test GROUP BY userid) b ON a.djid = b.userid'
+                    + ' ORDER BY upvotes DESC LIMIT 3',
+                    function select(error, results, fields) {
+                        var response = 'DJs with the most points in the last 24 hours: ';
+                        for (i in results) {
+                            response += results[i]['username'] + ': '
+                                + results[i]['upvotes'] + ' awesomes.  ';
+                        }
+                        output({text: response, destination: source, userid: userid});
+                });
+            }
+            break;
 
         //Returns the users name when asked who is the cutest dj
 		case 'cutestdjs':
         case 'cutestdj':
-			bot.speak('The cutest DJ is '+name+'!');
+			response = ('The cutest DJ is '+name+'!');
+            output({text: response, destination: source, userid: userid});
 			break;
 
 
 
 		//Returns the three DJs with the most points logged in the songlist table
 		case 'bestdjs':
-			if (config.database.usedb) {
-				client.query('SELECT djname as DJ, sum(up) as POINTS from '
-					+ '(SELECT * from ' + config.database.dbname + '.' + config.database.tablenames.song
-                + ' order by id desc) as SORTED'
-					+ ' group by djid order by sum(up) desc limit 3',
-					function select(error, results, fields) {
-						var response = 'The DJs with the most points accrued in this room: ';
-						for (i in results) {
-							response += results[i]['DJ'] + ': '
-								+ results[i]['POINTS'] + ' points.  ';
-						}
-						bot.speak(response);
-				});
-			}
-			break;
+            if (config.database.usedb) {
+                client.query('SELECT username, upvotes FROM (SELECT djid, sum(up) AS upvotes '
+                    + 'FROM ' + config.database.dbname + '.' + config.database.tablenames.song
+                    + ' GROUP BY djid ORDER BY sum(up) DESC LIMIT 3) a INNER JOIN (SELECT * FROM (SELECT * FROM '
+                     + config.database.dbname + '.' + config.database.tablenames.user
+                    + ' ORDER BY lastseen DESC) as test GROUP BY userid)'
+                    + ' b ON a.djid = b.userid ORDER BY upvotes DESC LIMIT 3',
+                    function select(error, results, fields) {
+                        var response = 'The DJs with the most points accrued in this room: ';
+                        for (i in results) {
+                            response += results[i]['username'] + ': '
+                                + results[i]['upvotes'] + ' points.  ';
+                        }
+                        output({text: response, destination: source, userid: userid});
+                });
+            }
+            break;
 
 		//Returns the three DJs with the most points logged in the songlist table
 		case 'worstdjs':
@@ -1298,6 +1304,21 @@ function handleCommand (name, userid, text, source) {
 			}
 			break;
 
+        case 'mypast24hours':
+        if (config.database.usedb) {
+            client.query('SELECT count(*) AS songs, sum(up) AS upvotes, sum(down) AS downvotes FROM '
+                + config.database.dbname + '.'
+                + config.database.tablenames.song + ' WHERE started > DATE_SUB(NOW(), '
+                + 'INTERVAL 1 DAY) AND djid LIKE \'' + userid + '\'',
+                function select(error, results, fields) {
+                    var response = name + ', you have played ' + results[0]['songs']
+                        + ' songs in the past 24 hours, with ' + results[0]['upvotes']
+                        + ' upvotes and ' + results[0]['downvotes'] + ' downvotes.';
+                    output({text: response, destination: source, userid: userid});
+            });
+        }
+        break;
+        
 		//Returns the three most-played songs in the songlist table
 		case 'mostplayed':
 			if (config.database.usedb) {
@@ -1318,56 +1339,58 @@ function handleCommand (name, userid, text, source) {
 			
 			//Returns the three most-played songs in the songlist table
 		case 'mostsnagged':
-			if (config.database.usedb) {
-				client.query('SELECT CONCAT(song,\' by \',artist) AS TRACK, sum(snags) AS SNAGS FROM '
-					+ config.database.dbname + '.' + config.database.tablenames.song
-                + ' GROUP BY CONCAT(song, \' by \', artist) ORDER BY SNAGS '
-					+ 'DESC LIMIT 3', function select(error, results, fields) {
-						var response = 'The songs I\'ve seen snagged the most: ';
-						for (i in results) {
-							response += results[i]['TRACK'] + ': '
-								+ results[i]['SNAGS'] + ' snags.  ';
-						}
-						bot.speak(response);
-				});
-			}
-			break;
+            if (config.database.usedb) {
+                client.query('SELECT CONCAT(song,\' by \',artist) AS TRACK, sum(snags) AS SNAGS FROM '
+                    + config.database.dbname + '.' + config.database.tablenames.song
+                    + ' GROUP BY CONCAT(song, \' by \', artist) ORDER BY SNAGS '
+                    + 'DESC LIMIT 3', function select(error, results, fields) {
+                        var response = 'The songs I\'ve seen snagged the most: ';
+                        for (i in results) {
+                            response += results[i]['TRACK'] + ': '
+                                + results[i]['SNAGS'] + ' snags.  ';
+                        }
+                        output({text: response, destination: source, userid: userid});
+                });
+            }
+            break;
 
 		//Returns the three most-awesomed songs in the songlist table
 		case 'mostawesomed':
 			if (config.database.usedb) {
-				client.query('SELECT CONCAT(song,\' by \',artist) AS TRACK, SUM(up) AS SUM FROM '
-					+ config.database.dbname + '.' + config.database.tablenames.song
-                + ' GROUP BY CONCAT(song,\' by \',artist) ORDER BY SUM '
-					+ 'DESC LIMIT 3',
-					function select(error, results, fields) {
-						var response = 'The most awesomed songs I\'ve heard: ';
-						for (i in results) {
-							response += results[i]['TRACK'] + ': '
-								+ results[i]['SUM'] + ' awesomes.  ';
-						}
-						bot.speak(response);
-				});
-			}
-			break;
+                client.query('SELECT CONCAT(song,\' by \',artist) AS TRACK, SUM(up) AS SUM FROM '
+                    + config.database.dbname + '.' + config.database.tablenames.song
+                    + ' GROUP BY CONCAT(song,\' by \',artist) ORDER BY SUM '
+                    + 'DESC LIMIT 3',
+                    function select(error, results, fields) {
+                        var response = 'The most awesomed songs I\'ve heard: ';
+                        for (i in results) {
+                            response += results[i]['TRACK'] + ': '
+                                + results[i]['SUM'] + ' awesomes.  ';
+                        }
+                        output({text: response, destination: source, userid: userid});
+                });
+            }
+            break;
+
 
 		//Returns the three most-lamed songs in the songlist table
 		case 'mostlamed':
 			if (config.database.usedb) {
-				client.query('SELECT CONCAT(song,\' by \',artist) AS TRACK, SUM(down) AS SUM FROM '
-					+ config.database.dbname + '.' + config.database.tablenames.song
-                + ' GROUP BY CONCAT(song,\' by \',artist) ORDER BY SUM '
-					+ 'DESC LIMIT 3',
-					function select(error, results, fields) {
-						var response = 'The most lamed songs I\'ve heard: ';
-						for (i in results) {
-							response += results[i]['TRACK'] + ': '
-								+ results[i]['SUM'] + ' lames.  ';
-						}
-						bot.speak(response);
-				});
-			}
-			break;
+                client.query('SELECT CONCAT(song,\' by \',artist) AS TRACK, SUM(down) AS SUM FROM '
+                    + config.database.dbname + '.' + config.database.tablenames.song
+                    + ' GROUP BY CONCAT(song,\' by \',artist) ORDER BY SUM '
+                    + 'DESC LIMIT 3',
+                    function select(error, results, fields) {
+                        var response = 'The most lamed songs I\'ve heard: ';
+                        for (i in results) {
+                            response += results[i]['TRACK'] + ': '
+                                + results[i]['SUM'] + ' lames.  ';
+                        }
+                        output({text: response, destination: source, userid: userid});
+                });
+            }
+            break;
+
 			
 		//Returns the user's play count, total awesomes/lames, and average awesomes/lames
 		//in the room
@@ -1402,68 +1425,67 @@ function handleCommand (name, userid, text, source) {
 		//Returns the user's three most played songs
 		case 'mymostplayed':
 			if (config.database.usedb) {
-				client.query('SELECT CONCAT(song,\' by \',artist) AS TRACK, COUNT(*) AS COUNT FROM '
-					+ config.database.dbname + '.' + config.database.tablenames.song
-                + ' WHERE (djid = \''+ data.userid +'\')'
-					+ ' GROUP BY CONCAT(song,\' by \',artist) ORDER BY COUNT(*) DESC LIMIT 3',
-					function select(error, results, fields) {
-						var response = 'The songs I\'ve heard the most from you: ';
-						for (i in results) {
-							response += results[i]['TRACK'] + ': '
-								+ results[i]['COUNT'] + ' plays.  ';
-						}
-						bot.speak(response);
-				});
-			}
-			break;
-
+                client.query('SELECT CONCAT(song,\' by \',artist) AS TRACK, COUNT(*) AS COUNT FROM '
+                    + config.database.dbname + '.' + config.database.tablenames.song + ' WHERE (djid = \''+ userid +'\')'
+                    + ' GROUP BY CONCAT(song,\' by \',artist) ORDER BY COUNT(*) DESC LIMIT 3',
+                    function select(error, results, fields) {
+                        var response = 'The songs I\'ve heard the most from you: ';
+                        for (i in results) {
+                            response += results[i]['TRACK'] + ': '
+                                + results[i]['COUNT'] + ' plays.  ';
+                        }
+                        output({text: response, destination: source, userid: userid});
+                });
+            }
+            break;
+            
 		//Returns the user's three most-awesomed songs (aggregate)
 		case 'mymostawesomed':
 			if (config.database.usedb) {
-				client.query('SELECT CONCAT(song,\' by \',artist) AS TRACK, SUM(up) AS SUM FROM '
-					+ config.database.dbname + '.' + config.database.tablenames.song
-                + ' WHERE (djid = \''+ data.userid +'\')'
-					+ ' GROUP BY CONCAT(song,\' by \',artist) ORDER BY SUM DESC LIMIT 3',
-					function select(error, results, fields) {
-						var response = 'The most appreciated songs I\'ve heard from you: ';
-						for (i in results) {
-							response += results[i]['TRACK'] + ': '
-								+ results[i]['SUM'] + ' awesomes.  ';
-						}
-						bot.speak(response);
-				});
-			}
-			break;
+                client.query('SELECT CONCAT(song,\' by \',artist) AS TRACK, SUM(up) AS SUM FROM '
+                    + config.database.dbname + '.' + config.database.tablenames.song + ' WHERE (djid = \''+ userid +'\')'
+                    + ' GROUP BY CONCAT(song,\' by \',artist) ORDER BY SUM DESC LIMIT 3',
+                    function select(error, results, fields) {
+                        var response = 'The most appreciated songs I\'ve heard from you: ';
+                        for (i in results) {
+                            response += results[i]['TRACK'] + ': '
+                                + results[i]['SUM'] + ' awesomes.  ';
+                        }
+                        output({text: response, destination: source, userid: userid});
+                });
+            }
+            break;
 
 		//Returns the user's three most-lamed songs (aggregate)
 		case 'mymostlamed':
 			if (config.database.usedb) {
-				client.query('SELECT CONCAT(song,\' by \',artist) AS TRACK, SUM(down) AS SUM FROM '
-					+ config.database.dbname + '.' + config.database.tablenames.song
-                + ' WHERE (djid = \''+ data.userid +'\')'
-					+ ' GROUP BY CONCAT(song,\' by \',artist) ORDER BY SUM DESC LIMIT 3',
-					function select(error, results, fields) {
-						var response = 'The most hated songs I\'ve heard from you: ';
-						for (i in results) {
-							response += results[i]['TRACK'] + ': '
-								+ results[i]['SUM'] + ' lames.  ';
-						}
-						bot.speak(response);
-				});
-			}
-			break;
+                client.query('SELECT CONCAT(song,\' by \',artist) AS TRACK, SUM(down) AS SUM FROM '
+                    + config.database.dbname + '.' + config.database.tablenames.song + ' WHERE (djid = \''+ userid +'\')'
+                    + ' GROUP BY CONCAT(song,\' by \',artist) ORDER BY SUM DESC LIMIT 3',
+                    function select(error, results, fields) {
+                        var response = 'The most hated songs I\'ve heard from you: ';
+                        for (i in results) {
+                            response += results[i]['TRACK'] + ': '
+                                + results[i]['SUM'] + ' lames.  ';
+                        }
+                        output({text: response, destination: source, userid: userid});
+                });
+            }
+            break;
 
 		//For debugging/monitoring of db
 		//Returns the number of songs logged.
 		case 'dbsize':
 			if (config.database.usedb) {
-				//var response = 'Songs logged';
-				client.query('SELECT COUNT(STARTED) AS COUNT FROM ' + config.database.tablenames.song,
-					function selectCb(error, results, fields) {
-						bot.speak('Songs logged: ' + results[0]['COUNT'] + ' songs.');
-				});
-			}
-			break;
+                //var response = 'Songs logged';
+                client.query('SELECT COUNT(STARTED) AS COUNT FROM ' + config.database.dbname + '.'
+                + config.database.tablenames.song,
+                    function selectCb(error, results, fields) {
+                        var response = ('Songs logged: ' + results[0]['COUNT'] + ' songs.');
+                        output({text: response, destination: source, userid: userid});
+                });
+            }
+            break;
 
 		//Bot freakout
 		case 'mookie sucks':
