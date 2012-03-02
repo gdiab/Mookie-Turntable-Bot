@@ -321,7 +321,7 @@ function boomCall(source) {
 	} else if (rand < 0.4) {
 		response =('BOOM!');
 	} else if (rand < 0.5) {
-		response =k('boom.');
+		response =('boom.');
 	} else if (rand < 0.6) {
 		response =('AWESOME!!!');
 	} else if (rand < 0.7) {
@@ -901,18 +901,17 @@ function handleCommand (name, userid, text, source) {
 		case '/dance':
 			//If the user has not cast a bonus point, add to bonuspoints array
 			//Only use this scheme if vote-based bonus points are disabled
-			if ((bonuspoints.indexOf(data.name) == -1) && !config.voteBonus) {
-				bonuspoints.push(data.name);
-				var target = getTarget();
-				//If the target has been met, the bot will awesome
-				if((bonuspoints.length >= target) && !bonusvote) {
-					bot.speak('This song is sooooo good!');
-					bot.vote('up');
-					bot.snag();
-					bonusvote = true;
-				}
-			}
-		break;
+			if ((config.bonusvote == 'CHAT') && (bonuspoints.indexOf(name) == -1)) {
+                bonuspoints.push(name);
+                var target = getTarget();
+                //If the target has been met, the bot will awesome
+                if((bonuspoints.length >= target) && !bonusvote && (currentsong.djid != config.botinfo.userid)) {
+                    bot.speak('Bonus!');
+                    bot.vote('up');
+                    bonusvote = true;
+                }
+            }
+            break;
         
         //Rolls the dice.
         //If vote bonus is set to DICE, the bot will awesome if a 4 or higher is rolled
@@ -1085,6 +1084,7 @@ function handleCommand (name, userid, text, source) {
 		//Change mookie, meow etc to bot name
 		case 'hugs mookie':
 		case 'hugs #mookie':
+        case '/hugs mookie':
 			var rand = Math.random();
 			var timetowait = 1600;
 			if (rand < 0.4) {
@@ -1094,7 +1094,7 @@ function handleCommand (name, userid, text, source) {
 				timetowait += 600;
 			}
 			setTimeout(function() {
-				bot.speak('hugs ' + data.name);
+				bot.speak('hugs ' + name);
 			}, timetowait);
 			break;
 		
