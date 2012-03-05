@@ -464,124 +464,78 @@ bot.on('tcpEnd', function(socket) {
 
 //TCP message handling
 bot.on('tcpMessage', function (socket, msg) {
-    var jsonmsg;
-    try {
-        jsonmsg = JSON.parse(msg);
-    } catch (e) {
-        return;
-    }
-    
-    var response = {response: 'INVALID QUERY'};
-    if (jsonmsg.command != null) {
-        switch (jsonmsg.command) {
-        
-            //Get commands
-            
-            case 'sendonlineevents':
-                for (i in sockets) {
-                    if (sockets[i].socket == socket) {
-                        if (jsonmsg.parameter == 'true') {
-                            sockets[i].online = true;
-                        } else if (jsonmsg.parameter == 'false') {
-                            sockets[i].online = false;
-                        }
-                        response = {response: 'sendvoteevents', value: sockets[i].online};
-                    }
-                }
-                break;
-                
-            case 'sendvoteevents':
-                for (i in sockets) {
-                    if (sockets[i].socket == socket) {
-                        if (jsonmsg.parameter == 'true') {
-                            sockets[i].votes = true;
-                        } else if (jsonmsg.parameter == 'false') {
-                            sockets[i].votes = false;
-                        }
-                        response = {response: 'sendvoteevents', value: sockets[i].votes};
-                        setTimeout(function () {
-                        socket.write(JSON.stringify({response: 'currentsong', 
-                            value: currentsong}));
-                        }, 200);
-                        
-                    }
-                }
-                break;
-                
-            case 'online':
-                response = {response: 'online', value: currentsong.listeners};
-                break;
-                
-            case 'users': 
-                response = {response: 'users', value: usersList};
-                break;
-                
-            case 'uptime':
-                response = {response: 'uptime', value: uptime};
-                break;
-            
-            case 'currentsong':
-                response = {response: 'currentsong', value: currentsong};
-                break;
-                
-            case 'speak':
-                bot.speak(jsonmsg.parameter);
-                response = {response: 'speak', value: true};
-                break;
-                
-            case 'boot':
-                bot.boot(jsonmsg.parameter);
-                response = {response: 'boot', value: true};
-                break;
-            
-            case 'getconfig':
-                response = {response: 'getconfig', value: config};
-                break;
-            
-            case 'vote':
-                if (jsonmsg.parameter == 'up') {
-                    bot.vote('up');
-                } else if (jsonmsg.parameter == 'down') {
-                    bot.vote('down');
-                }
-                break;
-                
-            case 'stepup':
-                bot.addDj();
-                response = {response: 'stepup', value: true};
-                break;
-            
-            case 'stepdown':
-                bot.remDj(config.botinfo.userid);
-                response = {response: 'stepdown', value: true};
-                break;
-                
-            case 'pulldj':
-                bot.remDj(usertostep);
-                response = {response: 'pulldj', value: true};
-                break;
-                
-            case 'exit':
-                response = {response: 'exit', value: true};
-                socket.end();
-                break;
-                
-            //Database get commands
-            
-            //Set commands
-            /**
-            case 'setconfig':
-                //Authenticate using jsonmsg.login.username, jsonmsg.login.password
-                var newconfig = jsonmsg.parameter;
-                config = newconfig;
-                response = {response: 'setconfig', value: config};
-                break;
-            */
-        }
-    }
-    socket.write(JSON.stringify(response));
-    
-   
+    //If the message ends in a ^M character, remove it.
+     if (msg.substring(msg.length - 1).match(/\cM/)) {
+         msg = msg.substring(0, msg.length - 1);
+     }
+     
+	//Have the bot speak in chat
+	if (msg.match(/^speak/)) {
+		bot.speak(msg.substring(6));
+		socket.write('>> Message sent\n');
+	}
+	
+	//Boot the given userid
+	//TODO: Change userid to user name
+	if (msg.match(/^boot/)) {
+		bot.boot(msg.substring(5));
+        socket.write('>> User booted\n');
+	}
+	
+	//Handle commands
+	switch (msg) {
+		case 'help':
+			socket.write('>> mookie responds to the following commands in the console: '
+				+ 'online, .a,\n'
+                + '>> .l, step up, step down, speak [text], exit, shutdown\n');
+			break;
+		case 'online':
+			socket.write('>> ' + currentsong.listeners + '\n');
+			break;
+		case 'users':
+			var output = '>> ';
+			for (var i in usersList) {
+				output += (usersList[i].name) + ', ';
+			}
+			socket.write(output.substring(0,output.length - 2) + '\n');
+			break;
+		case 'nowplaying':
+			socket.write('>> ' + currentsong.artist + ' - ' + currentsong.song
+				+ '\n>> DJ ' + currentsong.djname + ' +' + currentsong.up 
+				+ ' -' + currentsong.down + '\n');
+			break;
+		case '.a':
+			bot.vote('up');
+			socket.write('>> Awesomed\n');
+			break;
+		case '.l':
+			bot.vote('down');
+			socket.write('>> Lamed\n');
+			break;
+		case 'step up':
+			bot.addDj();
+			socket.write('>> Stepped up\n');
+			break;
+		case 'step down':
+			bot.remDj(config.USERID);
+			socket.write('>> Stepped down\n');
+			break;
+		case 'pulldj':
+			bot.remDj(usertostep);
+			socket.write('>> DJ removed\n');
+			break;
+		case 'exit':
+			socket.write('>> Goodbye!\n');
+			socket.end();
+			break;
+		case 'shutdown':
+			socket.write('>> Shutting down...\n');
+			bot.speak('Shutting down...');
+			socket.end();
+			bot.roomDeregister();
+			process.exit(0);
+			break;
+		}
 });
 
 
