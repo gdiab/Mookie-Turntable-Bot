@@ -14,7 +14,7 @@
  *  is enabled in the config file)
  *
 */
-var version = '[inALLcaps.com] 2012.02.28 : 1.5.5';
+var version = '[inALLcaps.com] 2012.02.28 : 1.5.7';
 
 var fs = require('fs');
 var Bot;
@@ -192,7 +192,8 @@ var currentsong = {
 	up: 0,
 	down: 0,
 	listeners: 0,
-	snags: 0};
+	snags: 0,
+    songid: null};
     
 //this is a keep alive if the room empties out for long periods of time
 setTimeout(function() {
@@ -285,6 +286,7 @@ function populateSongData(data) {
 	currentsong.listeners = data.room.metadata.listeners;
 	currentsong.started = data.room.metadata.current_song.starttime;
 	currentsong.snags = 0;
+    currentsong.songid = data.room.metadata.current_song._id;
 }
 
 function output(data) {
@@ -810,7 +812,7 @@ bot.on('speak', function (data) {
 	//If it's a supported command, handle it	
     
     if (config.responses.respond) {
-        handleCommand(data.name, data.userid, data.text.toLowerCase(), 'speak');
+        handleCommand(data.name, data.userid, data.text.toLowerCase(), 'speak', data);
     }
     
     
@@ -819,7 +821,7 @@ bot.on('speak', function (data) {
 
 
 //Handles chat commands
-function handleCommand (name, userid, text, source) {
+function handleCommand (name, userid, text, source, data) {
     switch(text) {
     case '.mookiecommands':
 			var response = 'commands: .users, .owner, .source, mystats, bonus, points, rules, ping, '
@@ -1528,7 +1530,7 @@ function handleCommand (name, userid, text, source) {
 		//tells bot to snag song
 		case 'snag this mookie':
 		case 'snag this':
-            //bot.speak('debug: ' + currentsong.songid);
+            console.log('debug: ' + currentsong.songid);
 			if (admincheck(userid)) {
 				setTimeout(function() {
 					response = ('got it!');
@@ -1537,7 +1539,7 @@ function handleCommand (name, userid, text, source) {
 					response = boomCall();
                     output({text: response, destination: source, userid: userid});
 				}, 1000);
-			}	
+			}
 			break;
 				
 		case 'uptime':
@@ -2031,7 +2033,7 @@ bot.on('booted_user', function(data) {
 bot.on('pmmed', function(data) {
     console.log('pm message');
     try {
-        handleCommand(usersList[data.senderid].name, data.senderid, data.text.toLowerCase(), 'pm');
+        handleCommand(usersList[data.senderid].name, data.senderid, data.text.toLowerCase(), 'pm', data);
     } catch (e) {
         bot.pm(data.senderid, '#mookie only responds to people in our room! http://turntable.fm/inallcapscom');
     }
