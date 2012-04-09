@@ -215,9 +215,10 @@ function Tweet() {
 
 function MusicFact(source, userid) {
     if (config.database.usedb) {
+    	console.log('getting music fact');
         client.query('SELECT * FROM MUSICFACTS ORDER BY RAND() LIMIT 1',
-            function selectCb(error, results, fields) {
-                if (results[0] != null) {
+            function select(error, results, fields) {
+                if (results[0] != undefined) {
                     var response = (results[0]['fact']);
                     if (source == 'speak') {
                             bot.speak(response);
@@ -737,17 +738,19 @@ bot.on('registered',   function (data) {
 					function cbfunc(error, results, fields) {
 						if (results[0] != null) {
 							if (user.name == 'The Little One') {
-                                bot.speak('TLO is my favorite!');
-                            } else {
+                                				bot.speak('TLO is my favorite!');
+                            				} else {
 								 setTimeout(function() {
-                                        bot.speak(results[0]['greeting'] + ', ' + user.name + '!'); 
-                                    }, 1200);          
-                            }						} else {
+                                        			bot.speak(results[0]['greeting'] + ', ' + user.name + '!'); 
+                                    				}, 1200);          
+                           				 }						
+                           				 
+						} else {
 							bot.speak(config.responses.greeting + user.name + '!');
 						}
-				});
-			} else {
-				bot.speak(config.responses.greeting + user.name + '!');
+					});
+					} else {
+						bot.speak(config.responses.greeting + user.name + '!');
 			}
 		}
 	}
