@@ -234,7 +234,7 @@ function MusicFact(source, userid) {
 function KeepAlive() {
     var rand = Math.random();
     var response = '';
-	if (rand < 0.4) {
+	if (rand < 0.7) {
         getTwitters();
     } else {
         MusicFact('speak');
