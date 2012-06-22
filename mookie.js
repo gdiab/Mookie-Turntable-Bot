@@ -196,9 +196,9 @@ var currentsong = {
     songid: null};
     
 //this is a keep alive if the room empties out for long periods of time
-setTimeout(function() {
+/*setTimeout(function() {
 				KeepAlive();
-			}, 6000);
+			}, 6000);*/
             
 function GetRandomNumber(low, high) {
     var i;
@@ -234,7 +234,7 @@ function MusicFact(source, userid) {
 function KeepAlive() {
     var rand = Math.random();
     var response = '';
-	if (rand < 0.7) {
+	if (rand < 0.4) {
         getTwitters();
     } else {
         MusicFact('speak');
@@ -246,16 +246,18 @@ function KeepAlive() {
 
 function getTwitters() {
     //this uses YSQL to access the RSS feed of @inallcaps on twitter
-    request('http://query.yahooapis.com/v1/public/yql?q=select%20title%20from%20rss%20where%20url%3D%22https%3A%2F%2Fapi.twitter.com%2F1%2Fstatuses%2Fuser_timeline.rss%3Fscreen_name%3Dinallcaps%22&format=json',
+    request('http://query.yahooapis.com/v1/public/yql?q=select%20title%20from%20rss%20where%20url%3D%22https%3A%2F%2Fapi.twitter.com%2F1%2Fstatuses%2Fuser_timeline.rss%3Fscreen_name%3D@inallcaps%22&format=json',
      function cbfunc(error, response, body) {
              if (!error && response.statusCode == 200) {
                 var formatted = eval('(' + body + ')');
+                console.log(body);
                 var x = GetRandomNumber(0, 14);
                 try {
                     var tweet = formatted.query.results.item[x].title;
                     bot.speak(tweet);
                 } catch(e) {
                     bot.speak('I wish I could go outside...');
+                    console.log(e);
                 }}
     });
 }
@@ -733,7 +735,7 @@ bot.on('registered',   function (data) {
 	//Displays custom greetings for certain members
 	if(config.responses.welcomeusers) {
         //Ignore ttdashboard bots
-		if (!user.name.match(/^ttdashboard/)) {
+		if (!user.name.match(/^#mookie/)) {
 			if (config.database.usedb) {
 				client.query('SELECT greeting FROM ' + config.database.dbname + '.'
                     + config.database.tablenames.holiday + ' WHERE date LIKE CURDATE()',
@@ -812,6 +814,42 @@ bot.on('speak', function (data) {
 	//If it's a supported command, handle it	
     
     if (config.responses.respond) {
+        //Returns weather for a user-supplied city using YQL.
+        //Returns bot's location if no location supplied.
+        if(data.text.toLowerCase().match(/^.weather/)) {
+            var userlocation = data.text.toLowerCase().substring(9);
+            if (userlocation == '') {
+                userlocation = 89101;
+            }
+            console.log('http://query.yahooapis.com/v1/public/yql?q=use%20\'http%3A%2F%2Fgithub'
+                    + '.com%2Fyql%2Fyql-tables%2Fraw%2Fmaster%2Fweather%2Fweather.bylocatio'
+                    + 'n.xml\'%20as%20we%3B%0Aselect%20*%20from%20we%20where%20location%3D'
+                    + '%22' + encodeURIComponent(userlocation) + '%22%20and%20unit%3D\'f\''
+                    + '&format=json&diagnostics=false');
+            request('http://query.yahooapis.com/v1/public/yql?q=use%20\'http%3A%2F%2Fgithub'
+                    + '.com%2Fyql%2Fyql-tables%2Fraw%2Fmaster%2Fweather%2Fweather.bylocatio'
+                    + 'n.xml\'%20as%20we%3B%0Aselect%20*%20from%20we%20where%20location%3D'
+                    + '%22' + encodeURIComponent(userlocation) + '%22%20and%20unit%3D\'f\''
+                    + '&format=json&diagnostics=false',
+                function cbfunc(error, response, body) {
+                        if (!error && response.statusCode == 200) {
+                                var formatted = eval('(' + body + ')');
+                            try {
+                            var loc = formatted.query.results.weather.rss.channel.location.city + ', '
+                            if (formatted.query.results.weather.rss.channel.location.region != '') {
+                                loc += formatted.query.results.weather.rss.channel.location.region;
+                            } else {
+                                loc += formatted.query.results.weather.rss.channel.location.country;
+                            }
+                            var temp = formatted.query.results.weather.rss.channel.item.condition.temp;
+                            var cond = formatted.query.results.weather.rss.channel.item.condition.text;
+                            bot.speak('The weather in ' + loc + ' is ' + temp + 'ºF and ' + cond + '.');
+                        } catch(e) {
+                    bot.speak('Sorry, I can\'t find that location.');
+                }}
+            });
+        }
+        //else
         handleCommand(data.name, data.userid, data.text.toLowerCase(), 'speak', data);
     }
     
@@ -1636,7 +1674,9 @@ function handleCommand (name, userid, text, source, data) {
 				process.exit(0);
 			}
             break;
-		
+
+
+	console.log('nothing...' + text);	
 	//Sends a PM to the user
     if (text.toLowerCase().match(/^pm me/)) {
         console.log('request to pm');
@@ -1653,41 +1693,7 @@ function handleCommand (name, userid, text, source, data) {
         bot.speak(canUserStep(name, data.userid));
     }
 
-	//Returns weather for a user-supplied city using YQL.
-	//Returns bot's location if no location supplied.
-	if(text.match(/^.weather/)) {
-		var userlocation = text.substring(9);
-		if (userlocation == '') {
-			userlocation = 20151;
-		}
-        console.log('http://query.yahooapis.com/v1/public/yql?q=use%20\'http%3A%2F%2Fgithub'
-		        + '.com%2Fyql%2Fyql-tables%2Fraw%2Fmaster%2Fweather%2Fweather.bylocatio'
-		        + 'n.xml\'%20as%20we%3B%0Aselect%20*%20from%20we%20where%20location%3D'
-		        + '%22' + encodeURIComponent(userlocation) + '%22%20and%20unit%3D\'f\''
-		        + '&format=json&diagnostics=false');
-		request('http://query.yahooapis.com/v1/public/yql?q=use%20\'http%3A%2F%2Fgithub'
-		        + '.com%2Fyql%2Fyql-tables%2Fraw%2Fmaster%2Fweather%2Fweather.bylocatio'
-		        + 'n.xml\'%20as%20we%3B%0Aselect%20*%20from%20we%20where%20location%3D'
-		        + '%22' + encodeURIComponent(userlocation) + '%22%20and%20unit%3D\'f\''
-		        + '&format=json&diagnostics=false',
-        	function cbfunc(error, response, body) {
-        	        if (!error && response.statusCode == 200) {
-        	                var formatted = eval('(' + body + ')');
-        	        	try {
-						var loc = formatted.query.results.weather.rss.channel.location.city + ', '
-        	            if (formatted.query.results.weather.rss.channel.location.region != '') {
-        	            	loc += formatted.query.results.weather.rss.channel.location.region;
-        	            } else {
-        	            	loc += formatted.query.results.weather.rss.channel.location.country;
-        	            }
-        	        	var temp = formatted.query.results.weather.rss.channel.item.condition.temp;
-        	        	var cond = formatted.query.results.weather.rss.channel.item.condition.text;
-        	        	bot.speak('The weather in ' + loc + ' is ' + temp + 'ºF and ' + cond + '.');
-                	} catch(e) {
-				bot.speak('Sorry, I can\'t find that location.');
-			}}
-        });
-	}
+	
 	
 	if(text.match(/^.find/)) {
 		var location = text.split(' ', 2);
